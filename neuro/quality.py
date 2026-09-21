@@ -36,12 +36,39 @@ def channel_metrics(x, fs=FS_EEG):
     total = np.trapezoid(p[band], f[band], axis=0)
     mains = np.trapezoid(p[near], f[near], axis=0) if near.any() else np.zeros(x.shape[1])
 
+    alpha_b = (f >= 8) & (f < 13)
+    alpha = np.trapezoid(p[alpha_b], f[alpha_b], axis=0) if alpha_b.any() \
+        else np.zeros(x.shape[1])
+
+    # Peak frequency in 4-30 Hz: at O1/O2 with eyes closed this should sit near
+    # 10 Hz once contact is real, which is the Berger check done live.
+    pk_b = (f >= 4) & (f < 30)
+    peak = f[pk_b][np.argmax(p[pk_b], axis=0)] if pk_b.any() \
+        else np.zeros(x.shape[1])
+
     d = np.diff(x, axis=0)
     return {
         "rms": np.sqrt(np.mean(bp**2, axis=0)),
         "mains_ratio": mains / np.maximum(total, 1e-12),
         "flat_frac": np.mean(np.abs(d) < 1e-12, axis=0),
+        "alpha_ratio": alpha / np.maximum(total, 1e-12),
+        "peak_hz": peak,
+        "freqs": f,
+        "psd": p,
     }
+
+
+def channel_issues(m, i):
+    """Per-channel quality complaints, or [] if the channel looks usable."""
+    out = []
+    if m["rms"][i] < MIN_RMS:
+        out.append(f"flat/dead (rms {m['rms'][i]:.3g})")
+    if m["flat_frac"][i] > MAX_FLAT_FRAC:
+        out.append(f"{m['flat_frac'][i]:.0%} stuck samples")
+    if m["mains_ratio"][i] > MAX_MAINS_RATIO:
+        out.append(f"50 Hz {m['mains_ratio'][i]:.2f}x signal (limit "
+                   f"{MAX_MAINS_RATIO:.2f}x)")
+    return out
 
 
 def assess(x, names, fs=FS_EEG, required=("FP1", "FP2")):
@@ -59,14 +86,7 @@ def assess(x, names, fs=FS_EEG, required=("FP1", "FP2")):
         if ch not in idx:
             reasons.append(f"{ch} missing from stream")
             continue
-        i = idx[ch]
-        if m["rms"][i] < MIN_RMS:
-            reasons.append(f"{ch} flat/dead (rms {m['rms'][i]:.3g})")
-        if m["flat_frac"][i] > MAX_FLAT_FRAC:
-            reasons.append(f"{ch} {m['flat_frac'][i]:.0%} stuck samples")
-        if m["mains_ratio"][i] > MAX_MAINS_RATIO:
-            reasons.append(f"{ch} 50 Hz power is {m['mains_ratio'][i]:.2f}x the 1-45 Hz "
-                           f"signal (limit {MAX_MAINS_RATIO:.2f}x)")
+        reasons.extend(f"{ch} {issue}" for issue in channel_issues(m, idx[ch]))
 
     # Both frontal pads echoing one waveform means at least one is off the scalp,
     # which would also defeat the frontal/posterior gate in detect.py.

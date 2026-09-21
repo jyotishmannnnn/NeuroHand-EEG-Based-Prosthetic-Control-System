@@ -69,6 +69,7 @@ class DetectConfig:
     median_sec: float = 4.0       # running-median window used as the DC baseline
     calib_sec: float = 20.0       # rest seconds used to learn the baseline
     warmup_sec: float = 1.5       # discard filter startup transient before calibrating
+    trace_sec: float = 12.0       # feature history retained for display/debug
     require_quality: bool = True  # refuse to arm if frontal contact fails quality.assess
 
 
@@ -166,6 +167,17 @@ class Tier1Detector:
     def calibrated(self):
         return self.base.locked
 
+    def trace(self):
+        """Recent (t, blink_z, emg_z, ratio) samples, for live display."""
+        return np.asarray(self._trace) if self._trace else np.empty((0, 4))
+
+    @property
+    def calib_progress(self):
+        """0..1 through the calibration window."""
+        if self.base.locked:
+            return 1.0
+        return min(self.base.n_observed / max(self.cfg.calib_sec * self.fs, 1), 1.0)
+
     def _features(self, chunk):
         """Return (t, blink_feat, emg_feat, ratio) arrays for this chunk."""
         s = self.fi_slow.apply(chunk)
@@ -221,8 +233,9 @@ class Tier1Detector:
             zb, ze, r = z[i, 0], z[i, 1], ratio[i]
             self.last_z, self.last_ratio = (zb, ze), r
             self._trace.append((t[i], zb, ze, r))
-            if len(self._trace) > int(3 * self.fs):
-                del self._trace[: len(self._trace) - int(3 * self.fs)]
+            cap = int(self.cfg.trace_sec * self.fs)
+            if len(self._trace) > cap:
+                del self._trace[: len(self._trace) - cap]
 
             hit = self.sm["blink"].step(t[i], zb)
             if hit:

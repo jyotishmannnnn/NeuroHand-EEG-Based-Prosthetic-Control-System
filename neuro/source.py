@@ -90,7 +90,8 @@ class CsvSource(Source):
     to wall clock so timing-dependent logic sees the same conditions as live.
     """
 
-    def __init__(self, session_dir, chunk=25, realtime=False, start=0.0, stop=None):
+    def __init__(self, session_dir, chunk=25, realtime=False, start=0.0, stop=None,
+                 speed=1.0):
         path = Path(session_dir)
         if path.is_dir():
             path = path / "UnfilteredData.csv"
@@ -109,6 +110,7 @@ class CsvSource(Source):
         self.fs = 1.0 / np.median(np.diff(self.t)) if len(self.t) > 1 else FS_EEG
         self.chunk = chunk
         self.realtime = realtime
+        self.speed = max(float(speed), 1e-6)
         self.i = 0
         self._t0 = None
 
@@ -120,8 +122,8 @@ class CsvSource(Source):
         self.i = j
         if self.realtime:
             if self._t0 is None:
-                self._t0 = time.perf_counter() - stamps[0]
-            lag = (self._t0 + stamps[-1]) - time.perf_counter()
+                self._t0 = time.perf_counter() - stamps[0] / self.speed
+            lag = (self._t0 + stamps[-1] / self.speed) - time.perf_counter()
             if lag > 0:
                 time.sleep(lag)
         return chunk, stamps
@@ -136,12 +138,13 @@ class SynthSource(Source):
     """
 
     def __init__(self, duration=60.0, fs=FS_EEG, events=(), chunk=25, realtime=False,
-                 scale=300.0, alpha_amp=0.0, seed=0, mains=0.0):
+                 scale=300.0, alpha_amp=0.0, seed=0, mains=0.0, speed=1.0):
         self.fs = float(fs)
         self.names = list(CHANNELS)
         self.duration = float(duration)
         self.chunk = chunk
         self.realtime = realtime
+        self.speed = max(float(speed), 1e-6)
         self.scale = scale
         self.alpha_amp = alpha_amp
         self.mains = mains
@@ -205,8 +208,8 @@ class SynthSource(Source):
         self.i = j
         if self.realtime:
             if self._t0 is None:
-                self._t0 = time.perf_counter() - stamps[0]
-            lag = (self._t0 + stamps[-1]) - time.perf_counter()
+                self._t0 = time.perf_counter() - stamps[0] / self.speed
+            lag = (self._t0 + stamps[-1] / self.speed) - time.perf_counter()
             if lag > 0:
                 time.sleep(lag)
         return chunk, stamps
@@ -225,6 +228,6 @@ def open_source(spec, **kw):
     if spec == "synth":
         return SynthSource(**{k: v for k, v in kw.items()
                               if k in ("duration", "events", "realtime", "seed", "scale",
-                                       "alpha_amp", "mains", "chunk")})
+                                       "alpha_amp", "mains", "chunk", "speed")})
     return CsvSource(spec, **{k: v for k, v in kw.items()
-                              if k in ("chunk", "realtime", "start", "stop")})
+                              if k in ("chunk", "realtime", "start", "stop", "speed")})

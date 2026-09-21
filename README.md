@@ -45,6 +45,7 @@ cap --BLE--> NeuroAnalytics (STREAMING-LSL) --LSL--> Python --serial--> ESP32 --
 | `firmware/esp32_hand/` | ESP32 firmware; owns the grasp primitives |
 | `config/hand.json` | single source of truth for pins, motor map, timings |
 | `tools/` | session analysis, LSL probe, config generator |
+| `run_monitor.py` | live GUI monitor and electrode-contact tool |
 
 ## Quickstart
 
@@ -63,7 +64,46 @@ python run_tier1.py --source lsl --port COM5
 
 # validate the whole chain
 python tests/test_chain.py
+python tests/test_monitor.py     # GUI, runs headless
 ```
+
+## GUI monitor / contact tool
+
+```bash
+python run_monitor.py --source lsl                        # contact tool, no hand
+python run_monitor.py --source synth                      # scripted demo
+python run_monitor.py --source "<...>/09-57-47" --speed 4  # replay a session
+python run_monitor.py --source lsl --port COM5            # full chain with hand
+```
+
+With no `--port` or `--mock` it attaches no hand at all, which is the intended
+way to use it while adjusting electrode pads.
+
+![monitor](reports/monitor_preview.png)
+
+Four panes:
+
+- **contact quality** — per-channel rms, 50 Hz-to-signal ratio, stuck samples,
+  alpha share and peak frequency, on a rolling 4 s window. Rows go red with the
+  specific complaint. Computed independently of the detector, so it is live from
+  the first second rather than waiting for calibration. `FP1`/`FP2` are bold
+  because Tier 1 only needs those two.
+- **traces** — all 8 channels, each normalised to its own spread. A shared scale
+  is useless on this cap: `FP2` has run 11x `FP1`'s amplitude in one recording.
+  Toggle `raw traces` to see drift and mains as the amplifier sees them.
+- **spectrum** — alpha band shaded, 50 Hz marked. This is the eyes-closed Berger
+  check done live instead of post-hoc via `tools/alpha_ec_eo.py`.
+- **features** — blink and EMG z-scores against their thresholds, with fired
+  events dotted. This pane is what explains a *missed* gesture: you can see
+  whether the blink fell short of threshold, was rejected by a gate, or was never
+  detected at all. A short blink and a held blink are visibly different widths.
+
+`Recalibrate` re-learns the baseline after fixing a pad, without restarting.
+`RELEASE HAND` is an operator abort, live whether or not the detector is armed.
+
+Bad contact looks like this — the real `09-57-47` session, refusing to arm:
+
+![bad contact](reports/monitor_badcontact.png)
 
 ## Control model
 
