@@ -1,0 +1,26 @@
+# Screen recordings: 333 MB total, and EEG_Recording2.mp4 alone exceeds GitHub's
+# 100 MB hard limit. Extracted frames are derived from them.
+*.mp4
+frames/
+
+# Qneuro's licensed Unity application and manual. Vendor proprietary: not ours to
+# redistribute. Obtain from Qneuro India Pvt. Ltd. (support@qneuro.com).
+NeuroAnalyticsWindows_28-05-2026/
+
+# Recorded sessions live outside the repo, under
+# %LOCALAPPDATA%Low/Qneuro/QneuroNeuroAnalytics/<user>/<date>/LiveSession/<time>/
+*.csv
+!reports/*.csv
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# String dump extracted from the vendor DLL. Kept locally; its useful contents
+# (stream suffixes, CSV headers) are documented in PROJECT_NOTES.md instead.
+tools/assembly_userstrings.txt

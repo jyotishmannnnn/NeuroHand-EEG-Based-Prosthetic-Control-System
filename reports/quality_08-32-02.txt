@@ -1,0 +1,17 @@
+﻿session: 08-32-02   samples: 218001   fs: 250.0 Hz   duration: 872 s
+timestamp gaps > 2.5 samples: 0
+
+  ch     raw_mean     raw_std  flat%     bp_rms  p50Hz% alpha/tot  clip%
+ FP1    -172316.2     93059.4    1.8    11816.2    10.4     0.013   1.00
+ FP2    -147252.6    108811.9    1.8    11843.8     3.6     0.010   1.00
+  O1      83825.2    126610.7    1.5    19403.1    43.2     0.024   1.00
+  O2      39678.3     98695.8    1.3    20893.1    42.5     0.022   1.00
+  C3      89438.0     93972.2    1.2    16082.5    42.8     0.017   1.00
+  CZ      13052.6    112359.2    1.2    19216.8    25.7     0.018   1.00
+  FZ     -54130.2    134139.0    1.4    14045.6    15.1     0.015   1.00
+  C4      48523.0    129129.2    1.9    21593.9    17.9     0.017   1.00
+
+O1: spectral peak in 4-30 Hz at 4.0 Hz
+O2: spectral peak in 4-30 Hz at 4.0 Hz
+
+mean |corr| between bandpassed channels: 0.47  (clean EEG ~0.2-0.5; >0.8 = common-mode/ref problem)

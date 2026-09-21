@@ -1,0 +1,55 @@
+{
+  "_comment": [
+    "Single source of truth for hand hardware. firmware/esp32_hand/config.h is GENERATED",
+    "from this file by tools/gen_hand_config.py -- edit here, not there.",
+    "",
+    "PLACEHOLDERS: pin assignments, finger->motor roles, and durations are unconfirmed.",
+    "Open hardware questions they stand in for: finger->motor map, encoder variant y/n,",
+    "motor voltage rating, which driver boards are actually owned, tendon return method.",
+    "",
+    "dir convention per primitive: +1 = pull tendon (flex), -1 = release, 0 = leave alone.",
+    "N20 tendons are pull-only; -1 relies on the antagonist/spring return, so open_ms is",
+    "set longer than close_ms to guarantee full release in the absence of position feedback."
+  ],
+  "watchdog_ms": 1500,
+  "duty_limit": 200,
+  "ramp_ms": 80,
+  "pwm_freq_hz": 20000,
+  "pwm_bits": 8,
+  "motors": [
+    { "id": 0, "role": "thumb_flex",   "in1": 25, "in2": 26, "invert": false, "close_ms": 650, "open_ms": 780 },
+    { "id": 1, "role": "thumb_oppose", "in1": 27, "in2": 14, "invert": false, "close_ms": 500, "open_ms": 600 },
+    { "id": 2, "role": "index_flex",   "in1": 12, "in2": 13, "invert": false, "close_ms": 600, "open_ms": 720 },
+    { "id": 3, "role": "middle_flex",  "in1": 33, "in2": 32, "invert": false, "close_ms": 600, "open_ms": 720 },
+    { "id": 4, "role": "ring_flex",    "in1": 4,  "in2": 16, "invert": false, "close_ms": 600, "open_ms": 720 },
+    { "id": 5, "role": "pinky_flex",   "in1": 17, "in2": 5,  "invert": false, "close_ms": 580, "open_ms": 700 },
+    { "id": 6, "role": "aux0",         "in1": 18, "in2": 19, "invert": false, "close_ms": 500, "open_ms": 600 },
+    { "id": 7, "role": "aux1",         "in1": 21, "in2": 22, "invert": false, "close_ms": 500, "open_ms": 600 }
+  ],
+  "_pin_notes": [
+    "Avoided: GPIO 6-11 (SPI flash), 34-39 (input-only, no output), 0/2/15 (strapping).",
+    "GPIO 16/17 are consumed by PSRAM on WROVER modules -- remap motors 4/5 if using WROVER."
+  ],
+  "primitives": {
+    "open": {
+      "thumb_flex": -1, "thumb_oppose": -1, "index_flex": -1, "middle_flex": -1,
+      "ring_flex": -1, "pinky_flex": -1, "aux0": -1, "aux1": -1
+    },
+    "power": {
+      "thumb_flex": 1, "thumb_oppose": 1, "index_flex": 1, "middle_flex": 1,
+      "ring_flex": 1, "pinky_flex": 1, "aux0": 0, "aux1": 0
+    },
+    "pinch": {
+      "thumb_flex": 1, "thumb_oppose": 1, "index_flex": 1, "middle_flex": -1,
+      "ring_flex": -1, "pinky_flex": -1, "aux0": 0, "aux1": 0
+    },
+    "point": {
+      "thumb_flex": 1, "thumb_oppose": 0, "index_flex": -1, "middle_flex": 1,
+      "ring_flex": 1, "pinky_flex": 1, "aux0": 0, "aux1": 0
+    },
+    "tripod": {
+      "thumb_flex": 1, "thumb_oppose": 1, "index_flex": 1, "middle_flex": 1,
+      "ring_flex": -1, "pinky_flex": -1, "aux0": 0, "aux1": 0
+    }
+  }
+}

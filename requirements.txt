@@ -1,0 +1,5 @@
+numpy>=2.0
+scipy>=1.11
+pyserial>=3.5
+pylsl>=1.16        # live streaming from QneuroNeuroAnalytics (STREAMING-LSL mode)
+opencv-python>=4.8  # only for tools/extract_frames.py
