@@ -106,6 +106,27 @@ def test_short_vs_long_blink():
           cmds[0].primitive == "power", cmds[0].primitive)
 
 
+def test_dead_frontal_pad():
+    print("\n[2c] one dead frontal pad must not kill blink detection")
+    # Observed on real session 09-18-27: the FP1 pad carried ongoing EEG but was
+    # not coupled to the eye dipole, so blink excursions hit 60 MADs on FP2 and
+    # under 2 on FP1. Averaging the two channels before measuring deviation lost
+    # a real held blink; taking each channel's deviation and maxing recovers it.
+    truth = [12.0, 16.0, 20.0]
+    src = SynthSource(duration=26, events=[(t, "blink") for t in truth], seed=6)
+    rng = np.random.default_rng(99)
+    i_fp1 = src.names.index("FP1")
+    # Replace FP1 with independent noise of the same scale: alive, but blind to blinks.
+    src.x[:, i_fp1] = rng.standard_normal(len(src.x)) * src.scale
+
+    det, evs = run_detector(src)
+    blinks = [e for e in evs if e.kind.startswith("blink")]
+    found = sum(any(abs(e.t - tt) <= 0.4 for e in blinks) for tt in truth)
+    check("blinks still found with FP1 blind", found == 3, f"{found}/3")
+    check("no spurious events from the dead pad",
+          len(blinks) == 3, f"{len(blinks)} blinks total")
+
+
 def test_jaw_detection():
     print("\n[3] jaw clench detection")
     truth = [12.0, 17.0, 22.0]
@@ -333,6 +354,7 @@ if __name__ == "__main__":
     test_filter_continuity()
     test_blink_detection()
     test_short_vs_long_blink()
+    test_dead_frontal_pad()
     test_jaw_detection()
     test_artifact_gate()
     test_decider()

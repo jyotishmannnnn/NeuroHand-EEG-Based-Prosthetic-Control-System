@@ -1,0 +1,76 @@
+Session 09-21-2026 / LiveSession / 09-18-27
+155 s, 38725 samples, fs 250 Hz, 0 timestamp gaps
+Protocol (as recorded): eyes closed, eyes open, then blinks / hand grasp-open / jaw
+
+VERDICT: first session with real, usable EEG. Berger effect confirmed. Two
+problems remain: the FP1 pad is not coupled to the eye dipole, and mains hum
+still dominates the raw signal on most channels.
+
+--- unfiltered ---
+  ch     raw_mean     raw_std  flat%     bp_rms  50Hz/sig  alpha/tot  clip%
+ FP1    -214399.2     21567.9    1.6      253.0    104.52      0.168   1.01
+ FP2      74925.8     64409.9    0.5      825.8     15.52      0.024   1.00
+  O1     125784.2      3385.7    0.6      939.7      0.34      0.036   1.01
+  O2      61124.2      6391.7    0.6      121.3    128.75      0.086   1.01
+  C3     121565.7      3199.6    0.5      164.6      3.59      0.002   1.01
+  CZ      20420.6     10645.1    0.6      621.3     96.99      0.088   1.01
+  FZ    -180322.7     21804.0    0.5      979.8     15.38      0.029   1.01
+  C4      58026.5     10837.6    0.5      134.1     70.55      0.020   1.00
+
+mean |corr| between bandpassed channels: 0.25
+  -> was 0.47 on 08-32-02, with O1/O2/C3/CZ/FZ echoing a near-identical
+     waveform. The floating-electrode problem is FIXED; 0.25 is in the normal
+     0.2-0.5 range for real EEG.
+
+--- phase boundaries, recovered from the data ---
+Occipital alpha share per 4 s locates the transitions independently of notes:
+  4-56 s    alpha/tot 0.31-0.55  -> eyes closed
+  60-78 s   alpha/tot 0.21-0.28  -> eyes open
+  80-136 s  alpha/tot 0.22-0.48  -> mixed / unclear, alpha returns intermittently
+  140-155 s alpha/tot 0.04-0.16 + large frontal excursions -> gestures
+
+The gesture block is only the last ~15 s, not the last ~35 s. Anything looking
+for blinks between 120 s and 140 s finds nothing because nothing happened there.
+
+--- Berger check (EC 5-55 s vs EO 60-78 s) ---
+  ch   EC/EO   EC_a/tot  EO_a/tot  peak_Hz   EC_rms
+  O1    2.65      0.436     0.230      8.5     41.5
+  O2    1.41      0.391     0.262      8.5     73.7
+  C3    1.32      0.271     0.216      8.5     29.8
+  C4    2.30      0.157     0.166      8.5     83.8
+  FZ    0.89      0.449     0.229      8.5    374.8
+ FP1    1.11      0.417     0.195      8.5    303.5
+
+Alpha share drops on eye opening on every channel, peak sits at 8.5 Hz in both
+conditions, and O1 EC/EO is 2.65 (3.49 over the wider 65-115 s window) against
+the >1.5 acceptance target. This is a genuine occipital alpha rhythm.
+O1 EC_rms 41.5 and C3 29.8 land inside the 10-50 target band.
+
+--- remaining problems ---
+1. FP1 is not coupled to the eye dipole. It carries ongoing EEG (alpha share
+   drops 0.417 -> 0.195 on eye opening) but in the 0.5-8 Hz blink band its
+   excursions during the gesture block peak at 0.2-1.5 MADs while FP2 reaches
+   11-60. Blink amplitude differs ~90x between the two frontal pads. Re-seat
+   FP1: part hair, clean skin, saline, press and hold.
+2. Mains hum dominates the raw signal: 50 Hz power is 104x the 1-45 Hz signal on
+   FP1, 129x on O2, 97x on CZ, 71x on C4. Only O1 (0.34x) is close to usable
+   raw. The app's own offline export (BP 0.5-40 + BS 48-62) reduces this to
+   0.000-0.020x and real EEG survives underneath, so the recording is salvageable
+   -- but the acquisition should be fixed, not patched: unplug the laptop from
+   mains, move 1 m from monitors and chargers, and re-wet the ear-clip reference.
+
+--- Tier-1 detector on the gesture block ---
+Calibrated on 96-136 s rest, quality gate forced off, detecting 136-155 s:
+  blink_long  t=146.8 s  z=12.2  dur=812 ms  ratio=59.6
+  jaw         t=151.6 s  z=6.5   dur=224 ms  ratio=68.0
+
+Two events. The high frontal/posterior ratios (59.6, 68.0) confirm these are
+genuine frontal events, not whole-head artifacts. Averaging FP1 and FP2 before
+measuring deviation found only the jaw; taking each channel's deviation and
+maxing recovered the held blink, which is why detect.py now does the latter.
+
+Not enough to validate the gesture set: the block is ~15 s and the individual
+blinks are not separable from it. Next recording should use an explicit protocol
+with rest gaps, e.g. 10 short blinks at 3 s spacing, 10 s rest, 5 held blinks
+(~1 s each) at 4 s spacing, 10 s rest, 5 jaw clenches at 4 s spacing -- and note
+the wall-clock start of each block so detections can be scored against truth.

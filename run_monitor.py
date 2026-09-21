@@ -507,11 +507,14 @@ def main(argv=None):
 
     kw = dict(realtime=args.source != "lsl", speed=args.speed)
     if args.source == "synth":
-        c = args.calib
-        kw.update(duration=args.duration, alpha_amp=0.6, events=[
-            (c + 4, "blink"), (c + 7, "blink"), (c + 10, "blink_long"),
-            (c + 14, "jaw"), (c + 20, "blink"), (c + 23, "blink_long"),
-        ])
+        # Repeating cycle-cycle-confirm-release so the demo keeps producing
+        # gestures for as long as the window is open.
+        evs, t = [], args.calib + 4.0
+        while t < args.duration - 2.0:
+            evs += [(t, "blink"), (t + 3, "blink"), (t + 6, "blink_long"),
+                    (t + 10, "jaw")]
+            t += 14.0
+        kw.update(duration=args.duration, alpha_amp=0.6, events=evs)
     try:
         src = open_source(args.source, **kw)
     except Exception as exc:

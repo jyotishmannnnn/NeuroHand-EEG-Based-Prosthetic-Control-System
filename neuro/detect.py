@@ -137,8 +137,8 @@ class Tier1Detector:
         # Envelope: rectify then low-pass. Rectification is correct here because EMG
         # is genuinely oscillatory, unlike the monophasic blink.
         self.fi_env = StreamFilter(lowpass_sos(1.0 / self.cfg.emg_smooth, fs=fs, order=2), 1)
-        self.med = Ring(max(int(self.cfg.median_sec * self.fs), 8), 2)
-        self._baseline_lvl = np.zeros(2)
+        self.med = None            # sized in _init_channels once frontal set is known
+        self._baseline_lvl = None
 
         self.base = Baseline(2)   # [blink_frontal, emg_frontal]
         self.t = 0.0
@@ -147,6 +147,10 @@ class Tier1Detector:
         self.i_post = [self.names.index(c) for c in POSTERIOR if c in self.names]
         if not self.i_front:
             raise ValueError(f"need at least one of {FRONTAL} in {self.names}")
+        # Median buffer holds one column per frontal channel plus the posterior mean.
+        cols = len(self.i_front) + 1
+        self.med = Ring(max(int(self.cfg.median_sec * self.fs), 8), cols)
+        self._baseline_lvl = np.zeros(cols)
 
         self.sm = {
             "blink": _Channel(self.cfg.blink_z, self.cfg.blink_min_dur,
@@ -185,7 +189,7 @@ class Tier1Detector:
         n = len(chunk)
         t = self.t + np.arange(1, n + 1) / self.fs
 
-        s_front = s[:, self.i_front].mean(axis=1)
+        front = s[:, self.i_front]
         s_post = s[:, self.i_post].mean(axis=1) if self.i_post else np.zeros(n)
 
         # Baseline is taken from the buffer as it stood before this chunk, so the
@@ -193,10 +197,17 @@ class Tier1Detector:
         # once per chunk rather than per sample; at 10 chunks/s that is ample.
         if self.med.filled >= self.med.n // 4:
             self._baseline_lvl = np.median(self.med.window()[-self.med.filled :], axis=0)
-        self.med.push(np.column_stack([s_front, s_post]))
+        self.med.push(np.column_stack([front, s_post]))
 
-        dev_front = np.abs(s_front - self._baseline_lvl[0])
-        dev_post = np.abs(s_post - self._baseline_lvl[1])
+        # Deviation is taken per frontal channel and then maxed, rather than
+        # averaging the channels first. On session 09-18-27 the FP1 pad carried
+        # ongoing EEG but was not coupled to the eye dipole: blink-band excursions
+        # reached 60 MADs on FP2 and under 2 on FP1. Averaging first halves the
+        # gesture and doubles the noise, and it lost a held blink that the max
+        # recovered. One dead frontal pad should cost sensitivity, not all of it.
+        n_f = len(self.i_front)
+        dev_front = np.abs(front - self._baseline_lvl[:n_f]).max(axis=1)
+        dev_post = np.abs(s_post - self._baseline_lvl[n_f])
 
         e_front = np.abs(e[:, self.i_front]).mean(axis=1)
         emg = np.abs(self.fi_env.apply(e_front[:, None])[:, 0])
