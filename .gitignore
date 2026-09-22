@@ -9,8 +9,13 @@ NeuroAnalyticsWindows_28-05-2026/
 
 # Recorded sessions live outside the repo, under
 # %LOCALAPPDATA%Low/Qneuro/QneuroNeuroAnalytics/<user>/<date>/LiveSession/<time>/
+# Only the raw streams are published, under data/sessions/ (see data/README.md);
+# the app's derived CSVs can be regenerated and stay local.
 *.csv
 !reports/*.csv
+!data/sessions/*/UnfilteredData.csv
+!data/sessions/*/PPGData.csv
+!data/sessions/*/IMUData.csv
 
 __pycache__/
 *.py[cod]

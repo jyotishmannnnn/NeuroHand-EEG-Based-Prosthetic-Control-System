@@ -1,0 +1,3 @@
+# Recorded data: byte-for-byte as the app wrote it, no line-ending conversion.
+data/** -text
+*.npz binary

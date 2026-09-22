@@ -76,6 +76,10 @@ As of the latest session the blocker is electrode placement, not code:
 
 App username in use: `Jyotishman`.
 
+The raw streams of every session so far (Unfiltered, PPG, IMU) are published in the
+repo under `data/sessions/<MM-DD-YYYY>_<HH-MM-SS>/`, indexed in `data/README.md`.
+Derived CSVs stay local.
+
 | file | header |
 |---|---|
 | UnfilteredData.csv | PseudoTimeSec,PseudoTimestamp,UF-FP1,UF-FP2,UF-O1,UF-O2,UF-C3,UF-CZ,UF-FZ,UF-C4 |
