@@ -1,0 +1,59 @@
+Session 09-22-2026 / LiveSession / 11-25-50
+68 s, 17025 samples, fs 250 Hz, 0 timestamp gaps
+Recorded through the app, no protocol - short check recording
+
+VERDICT: not usable as a recording, but it answers the open question from
+10-25-53. Blinks now reach FP1/FP2: a regular train of five appears on both
+frontal pads. The cost is a frontal noise floor three to five times worse,
+and 20 s lost to an all-channel disturbance.
+
+--- timeline ---
+Raw std per 5 s window shows three regimes:
+
+   0-15 s   quiet
+  15-35 s   all eight channels jump ~15x (FP1 std 9k -> 196k), clipping at
+            20.1-21.0 s, 50 Hz up to >10^4 x the 1-40 Hz band. Cap being
+            adjusted or head movement, not signal.
+  35-65 s   settled
+  65-68 s   burst on FZ/C3/C4/FP1 - cap coming off
+
+The whole-file stats (clip% ~1.0 on every channel, 50Hz% in the thousands)
+are dominated by the 15-35 s window. Everything below uses 36-64 s.
+
+--- blinks are back ---
+0.5-8 Hz frontal band, peaks above z=6 (MAD-scaled):
+
+  FP1  36.1  37.5  52.2  54.9  57.7  60.5  63.2
+  FP2  36.1  37.4  52.2        57.7  60.5  63.3
+
+52.2-63.2 s is five events at 2.7-2.8 s spacing, simultaneous on both pads -
+deliberate blinks. On 10-25-53 a blink_z sweep down to 4 produced zero
+detections. Repositioning FP1/FP2 lower (next step 1 there) appears to have
+worked.
+
+--- contact (36-64 s, 1-40 Hz + 50 Hz notch) ---
+  ch     bp_rms   alpha/tot   note
+ FP1     2491.5     0.009     noise floor up from 436 on 10-25-53
+ FP2     1622.6     0.016     up from 571
+  O1       36.8     0.041     no longer floating (was 8702), mains 100-800x band
+  O2       34.5     0.035     no longer floating (was 8576), mains still high
+  C3      192.4     0.012     marginal
+  CZ       47.4     0.022     no longer floating (was 7148), mains 100-1500x band
+  FZ       85.6     0.006     no longer floating (was 6441)
+  C4      271.5     0.034     marginal
+mean |corr| between bandpassed channels: 0.27
+
+O1/O2/CZ/FZ amplitudes now sit in the 10-50 count target, but 50 Hz power is
+still two to three orders of magnitude above the signal band - contact
+impedance is still high. Compare O1 on 09-18-27 at 0.34x. No alpha on any
+channel; either there was no eyes-closed period or it did not come through.
+
+--- next ---
+1. Keep FP1/FP2 at the current height - it is the first time the eye dipole
+   has reached them since 09-33-34. Press them in or re-wet them to bring the
+   noise floor back toward ~500 counts.
+2. Let the cap settle before starting the recording; the 15-35 s disturbance
+   cost a third of this session.
+3. Posterior/central pads need the mains fixed, not just the amplitude:
+   re-wet O1/O2/CZ/FZ and check 50 Hz in the monitor before recording.
+4. Then a full run_protocol.py session.
