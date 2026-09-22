@@ -1,0 +1,45 @@
+Cued protocol 20260923_000722
+28801 samples (115.2s) at 250 Hz
+stream: jyotishman_EEG
+
+contact over the baseline block:
+  ch        rms  50Hz/sig   flat%
+ FP1    19296.7      0.08     0.5
+ FP2    20684.6      0.07     0.4
+  O1     9565.3      0.25     0.5
+  O2    14780.3      0.10     0.5
+  C3    18480.2      0.10     0.5
+  CZ    37195.7      0.05     0.7
+  FZ    10376.2      0.16     0.4
+  C4     8197.5      0.46     0.5
+
+ratio gate: excluded O1,O2,C3,FZ,C4 (failed contact QC)
+
+    cue kind  cued   hit  wrong  missed    rate
+       blink    10     0      1       9     0%
+  blink_long     5     0      0       5     0%
+         jaw     5     0      0       5     0%
+       TOTAL    20     0      1      19     0%
+false alarms (detections matching no cue): 0
+
+per-cue detail  (cue_t, cued, detected, lag_s, z)
+  MISS t=  21.5s cued=blink      got=None       lag=        z=
+  KIND t=  24.5s cued=blink      got=jaw        lag= -0.16s z=6.4
+  MISS t=  27.5s cued=blink      got=None       lag=        z=
+  MISS t=  30.5s cued=blink      got=None       lag=        z=
+  MISS t=  33.5s cued=blink      got=None       lag=        z=
+  MISS t=  36.5s cued=blink      got=None       lag=        z=
+  MISS t=  39.5s cued=blink      got=None       lag=        z=
+  MISS t=  42.5s cued=blink      got=None       lag=        z=
+  MISS t=  45.5s cued=blink      got=None       lag=        z=
+  MISS t=  48.5s cued=blink      got=None       lag=        z=
+  MISS t=  62.0s cued=blink_long got=None       lag=        z=
+  MISS t=  66.0s cued=blink_long got=None       lag=        z=
+  MISS t=  70.0s cued=blink_long got=None       lag=        z=
+  MISS t=  74.0s cued=blink_long got=None       lag=        z=
+  MISS t=  78.0s cued=blink_long got=None       lag=        z=
+  MISS t=  92.0s cued=jaw        got=None       lag=        z=
+  MISS t=  96.0s cued=jaw        got=None       lag=        z=
+  MISS t= 100.0s cued=jaw        got=None       lag=        z=
+  MISS t= 104.0s cued=jaw        got=None       lag=        z=
+  MISS t= 108.0s cued=jaw        got=None       lag=        z=

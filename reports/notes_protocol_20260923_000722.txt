@@ -1,0 +1,32 @@
+Cued protocol 20260923_000722  (see protocol_20260923_000722.txt for the raw score)
+115.2 s via LSL jyotishman_EEG, launched by run_protocol.py, ~15 min after
+20260922_235229
+
+VERDICT: not usable. Broadband common-mode noise on all eight channels; the
+gestures cannot be assessed. Scored 0/20 (one blink cue caught as jaw).
+
+--- versus the previous run ---
+                                     235229        000722
+  median |sample step| FP1 / FP2     88 / 57       9834 / 14622
+  FP1 55-120 Hz                      -19 dB        +43 dB
+  FP1 1-10 Hz                         33 dB         59 dB
+  FP1 baseline-block rms              105          19297
+  steps > 20k counts                   -           17625 of 28801 samples
+  corr of sample steps across ch       -           0.74
+
+Noise rose 30-60 dB on every channel at once, worst at 0-25 s (the
+calibration window). Channels moving together points at the reference, i.e.
+the ear clip loosened, dried or shifted between runs. CZ was least affected
+(median step 980). The 50 Hz ratio looks good (0.05-0.46) only because the
+broadband noise drowns the mains line.
+
+--- cue-locked averages ---
+tools/cue_average.py gives "absent" for every kind and feature. The rest-null
+95% band on the raw frontal traces is about +/-75k counts, so no gesture
+could clear it; the one large-EMG blink trial is noise.
+
+--- next ---
+1. Re-seat the ear-clip reference: clean, re-wet, clip firmly, relieve cable
+   strain.
+2. Live 10 s check before any protocol run. Proceed only if FP1/FP2 median
+   sample step < ~200 and cross-channel step correlation < 0.3.

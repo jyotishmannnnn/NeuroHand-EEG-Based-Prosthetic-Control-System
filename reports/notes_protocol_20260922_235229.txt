@@ -1,0 +1,52 @@
+Cued protocol 20260922_235229  (see protocol_20260922_235229.txt for the raw score)
+115.2 s via LSL jyotishman_EEG, launched by run_protocol.py; the app saved the
+same run as LiveSession 11-49-40 (LSL sample 0 = CSV t 53.9 s, r = 1.0000)
+
+VERDICT: 0/20 as scored. Blinks and held blinks are not in the signal at all;
+jaw clenches are present but weak, and the detector's calibration made them
+undetectable.
+
+--- not the stream ---
+The LSL samples equal the app's UnfilteredData.csv for the same interval, DC
+offsets included. What run_protocol.py saw is what the device recorded.
+
+--- not the threshold ---
+Offline replay of the npz:
+
+  calibration          blink_z/jaw_z   hits   false alarms
+  original 0-20 s      12/5 .. 3/2     0-1    0-4
+  clean rest blocks    12/5 .. 3/2     0      4-11
+
+Lowering thresholds only adds false alarms.
+
+--- cue-locked averages (tools/cue_average.py) ---
+  blink       blink band peak/pre 2.03 vs rest null 2.13   absent
+  held blink  blink band peak/pre 2.61 vs rest null 2.29   absent
+  jaw         EMG envelope        2.67 vs rest null 1.26   present, 3/5 trials
+                                                           above the null p95
+
+--- the calibration flaw ---
+The first ~16 s carried settling movement: frontal EMG envelope median 85
+counts, against 0.7 for 20-115 s. Calibration learned that as baseline, so
+emg_z sat at -0.6 for the rest of the run and no clench could ever reach
+jaw_z. The detector should reject movement-heavy calibration windows or
+restart calibration; not yet fixed.
+
+--- contact over the baseline block ---
+  ch        rms  50Hz/sig
+ FP1      105.5      0.03     best frontal contact recorded
+ FP2      181.7      0.91
+  O1      110.3      3.75
+  O2      133.3      2.84
+  C3      433.4      7.49
+  CZ      185.9     21.45
+  FZ      202.4     20.66
+  C4      481.2     41.02
+All posterior pads failed contact QC; ratio gate disabled.
+
+Frontal 30-120 Hz power fell ~60 dB on FP1 at CSV 40 s and FP2 at 70 s and
+returned at 170 s, right after the run. Same-evening session 09-27-40 shows
+FP1 at -4..-10 dB throughout, so a quiet HF floor is normal for a relaxed,
+well-coupled pad; the edges line up with the operator settling and then
+moving. Low noise with neither the eye dipole nor strong EMG suggests the
+frontal pads sit well but in the wrong place.

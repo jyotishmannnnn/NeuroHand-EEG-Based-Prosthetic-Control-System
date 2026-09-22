@@ -1,0 +1,34 @@
+Session 09-22-2026 / LiveSession / 11-39-58
+101 s, 25275 samples, fs 250 Hz, 0 timestamp gaps
+Recorded through the app only - run_protocol.py was not running (no protocol
+output, no command in shell history, app not publishing LSL afterwards)
+
+VERDICT: contact check, not a gesture recording. Frontal contact is the best
+since 09-33-34; there is no cue structure to score.
+
+--- contact (whole file, 1-40 Hz + 50 Hz notch) ---
+  ch     bp_rms   50Hz%    11-25-50 bp_rms
+ FP1      263.7    25.0      2491.5
+ FP2      282.5   284.4      1622.6
+  O1      491.4  118379       36.8
+  O2      261.4   53912       34.5
+  C3      600.6   304.4      192.4
+  CZ      692.3   10146       47.4
+  FZ      378.7    63.0       85.6
+  C4     1048.4   170.9      271.5
+mean |corr| between bandpassed channels: 0.24
+
+Frontal noise floor down six- to ninefold from 11-25-50. Tier1Detector's
+frontal QC passes, so it arms. Posterior mains is still two to three orders of
+magnitude above the signal; the ratio gate excluded O1, O2, CZ, FZ and C4.
+
+--- no gestures to score ---
+Replaying the CSV through Tier1Detector at blink_z 12, 8 and 6 and searching
+the default protocol schedule over offsets -40..+40 s matches at best 1/20 cues
+(one jaw at 98.2 s). Frontal autocorrelation at the 3 s and 4 s lags stays near
+r = 0.1. The session is also 101 s against the protocol's 115 s.
+
+--- other ---
+IMUData.csv missing and PPGData.csv only 3 kB (normally ~300 kB): the PPG/IMU
+streams dropped out for this session. Burst on all channels at 95-101 s, cap
+coming off.

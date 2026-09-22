@@ -23,8 +23,18 @@ As of the latest session the blocker is electrode placement, not code:
 
 - **Jaw clench works.** Session 10-25-53 detected 5/5 cued clenches with the block
   autocorrelating at r=0.485 on a 3.98 s lag against the intended 4 s spacing.
-- **Blinks are not reaching FP1/FP2.** Zero detections at any threshold from z=12 down
-  to z=4, with nothing rejected by any gate.
+- **Blinks reach FP1/FP2 again** (11-25-50) after moving the pads lower: a five-blink
+  train on both pads. On 10-25-53 there were zero detections at any threshold. The
+  frontal noise floor is now 3–5× worse, so the pads need pressing in or re-wetting.
+- **Posterior pads stopped floating** on 11-25-50, but mains there is still two to
+  three orders of magnitude above the signal.
+- **First `run_protocol.py` runs (09-22/23) scored 0/20 twice.** Run 235229 had the
+  best frontal contact recorded (FP1 rms 105, 50Hz/sig 0.03). Its cue-locked averages
+  show blinks absent from the signal, and jaw present but weak (2.67× vs 1.26× rest
+  null). Movement during calibration hid the jaw clenches from the detector. Run
+  000722 was swamped by common-mode noise from a lost reference.
+- **Detector calibration has no guard against movement.** A contaminated first 20 s
+  inflates the baseline and silences detection for the whole run. Not yet fixed.
 - **Occipital alpha is achievable**: session 09-18-27 produced a clean 8.5 Hz rhythm
   with an eyes-closed/eyes-open ratio of 2.65–3.49 against a >1.5 target.
 - Contact regresses between sessions, so it must be verified live before every
@@ -119,6 +129,7 @@ PySide6 6.11.1, pyqtgraph 0.14.0, matplotlib 3.10.9, opencv.
 | `tools/lsl_probe.py` | discover LSL streams, print labels + live sample rates |
 | `tools/analyze_session.py` | per-channel quality from UnfilteredData.csv: RMS, flat%, 50 Hz ratio, alpha ratio, cross-channel corr |
 | `tools/alpha_ec_eo.py` | eyes-closed vs eyes-open alpha (Berger test) |
+| `tools/cue_average.py` | cue-locked raw/EMG averages of a protocol npz against a rest null; tells whether a gesture is in the signal at all, independent of the detector |
 | `tools/gen_hand_config.py` | generate `firmware/esp32_hand/config.h` from `config/hand.json` |
 | `tools/extract_frames.py` | sample JPEG frames from a screen-recording mp4 |
 
@@ -145,6 +156,10 @@ measurement.
 | 09-22 | 09-27-40 | 337 s | LSL session open during live probing, not a protocol run |
 | 09-22 | 09-33-34 | 95 s | **Best frontal contact.** FP1 0.5%, FP2 3.8% mains; gate armed clean for the first time. Six posterior pads floating (r = 1.00). Exposed the ratio-gate bug. Three blink-like events at 84–89 s. |
 | 09-22 | 10-25-53 | 126 s | **Jaw block validated**: 5/5 clenches, r=0.485 at 3.98 s lag. Blinks absent at every threshold. 13 s lead-in. |
+| 09-22 | 11-25-50 | 68 s | **Blinks back on FP1/FP2** after lowering the pads: five-blink train at ~2.75 s. Frontal bp_rms 1600–2500 (3–5× worse). Posterior no longer floating (bp_rms 35–85, corr 0.27) but 50 Hz still 100–1500× signal. 15–35 s lost to cap movement. No alpha. |
+| 09-22 | 11-39-58 | 101 s | Contact check, app only (no protocol ran). Frontal bp_rms 264/283, best since 09-33-34; detector arms. Posterior 50 Hz still 500–1200× signal. PPG/IMU dropped out. |
+| 09-22 | 11-49-40 | 360 s | App-side CSV of protocol run 20260922_235229 (LSL = CSV t 53.9–169.1 s). **0/20.** Blinks absent in cue averages, jaw weak but present (2.67× vs 1.26× null). Calibration contaminated by early movement. |
+| 09-23 | protocol 000722 | 115 s | **Unusable:** broadband common-mode noise +30–60 dB on all channels (step corr 0.74). Reference ear clip lost contact. |
 
 PPG (HR ~70–80 bpm, SpO2 ~99%) and IMU good in every session.
 
