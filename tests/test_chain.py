@@ -127,6 +127,38 @@ def test_dead_frontal_pad():
           len(blinks) == 3, f"{len(blinks)} blinks total")
 
 
+def test_ratio_gate_needs_usable_reference():
+    print("\n[4b] ratio gate must not compare against floating pads")
+    # Session 09-33-34: six posterior pads floating at ~10x the frontal amplitude.
+    # The gate asks "is this frontally dominant?", so a garbage posterior reference
+    # made every real blink score a ratio below 1 and 13 were rejected. Here the
+    # posterior channels carry heavy mains and so must be dropped from the gate.
+    truth = [12.0, 16.0, 20.0]
+    src = SynthSource(duration=26, events=[(t, "blink") for t in truth], seed=8)
+    fs = src.fs
+    post = [src.names.index(c) for c in ("O1", "O2", "C3", "CZ", "FZ", "C4")]
+    hum = np.sin(2 * np.pi * 50.0 * np.arange(len(src.x)) / fs) * 40.0 * src.scale
+    src.x[:, post] += hum[:, None]
+
+    det, evs = run_detector(src, DetectConfig(calib_sec=8.0, require_quality=False))
+    check("posterior reference dropped", det.i_ref == [],
+          f"kept {[det.names[i] for i in det.i_ref]}")
+    check("says why the gate is off", bool(det.gate_note) and "DISABLED" in det.gate_note,
+          str(det.gate_note))
+    blinks = [e for e in evs if e.kind.startswith("blink")]
+    found = sum(any(abs(e.t - tt) <= 0.4 for e in blinks) for tt in truth)
+    check("blinks survive a floating posterior reference", found == 3, f"{found}/3")
+    check("nothing rejected by ratio", det.rejected["ratio"] == 0,
+          f"{det.rejected['ratio']} rejected")
+
+    # Clean posterior pads must still be used, so the gate keeps working.
+    clean = SynthSource(duration=26, events=[(t, "blink") for t in truth], seed=8)
+    det2, _ = run_detector(clean, DetectConfig(calib_sec=8.0))
+    check("clean posterior pads are kept", len(det2.i_ref) == 6,
+          f"kept {len(det2.i_ref)}")
+    check("no gate note when all pads pass", det2.gate_note is None, str(det2.gate_note))
+
+
 def test_jaw_detection():
     print("\n[3] jaw clench detection")
     truth = [12.0, 17.0, 22.0]
@@ -357,6 +389,7 @@ if __name__ == "__main__":
     test_dead_frontal_pad()
     test_jaw_detection()
     test_artifact_gate()
+    test_ratio_gate_needs_usable_reference()
     test_decider()
     test_hand_and_watchdog()
     test_hand_config()

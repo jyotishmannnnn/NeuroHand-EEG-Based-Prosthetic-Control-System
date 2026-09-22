@@ -151,6 +151,10 @@ class Tier1Detector:
         cols = len(self.i_front) + 1
         self.med = Ring(max(int(self.cfg.median_sec * self.fs), 8), cols)
         self._baseline_lvl = np.zeros(cols)
+        # Channels actually used as the posterior reference for the ratio gate.
+        # Narrowed at calibration to those passing contact QC; see _finish_calibration.
+        self.i_ref = list(self.i_post)
+        self.gate_note = None
 
         self.sm = {
             "blink": _Channel(self.cfg.blink_z, self.cfg.blink_min_dur,
@@ -190,7 +194,7 @@ class Tier1Detector:
         t = self.t + np.arange(1, n + 1) / self.fs
 
         front = s[:, self.i_front]
-        s_post = s[:, self.i_post].mean(axis=1) if self.i_post else np.zeros(n)
+        s_post = s[:, self.i_ref].mean(axis=1) if self.i_ref else np.zeros(n)
 
         # Baseline is taken from the buffer as it stood before this chunk, so the
         # gesture being measured cannot pull its own reference level. Recomputed
@@ -212,7 +216,7 @@ class Tier1Detector:
         e_front = np.abs(e[:, self.i_front]).mean(axis=1)
         emg = np.abs(self.fi_env.apply(e_front[:, None])[:, 0])
 
-        ratio = (dev_front / np.maximum(dev_post, 1e-9) if self.i_post
+        ratio = (dev_front / np.maximum(dev_post, 1e-9) if self.i_ref
                  else np.full(n, np.inf))
         self.t = t[-1]
         return t, dev_front, emg, ratio
@@ -267,6 +271,22 @@ class Tier1Detector:
         self.base.lock()
         ok, reasons, metrics = quality.assess(raw, self.names, self.fs)
         self.quality, self.quality_reasons = metrics, reasons
+
+        # The ratio gate asks "is this excursion frontally dominant?", which is
+        # only meaningful if the posterior pads it compares against are actually
+        # on the scalp. On session 09-33-34 six posterior pads were floating at
+        # ten times the frontal amplitude, so every real blink scored a ratio
+        # below 1 and the gate rejected 13 of them. Compare only against pads
+        # that pass contact QC, and if none do, say so and stop gating rather
+        # than gating on noise.
+        self.i_ref = [i for i in self.i_post if not quality.channel_issues(metrics, i)]
+        dropped = [self.names[i] for i in self.i_post if i not in self.i_ref]
+        if dropped:
+            self.gate_note = (
+                f"ratio gate: excluded {','.join(dropped)} (failed contact QC)"
+                if self.i_ref else
+                f"ratio gate DISABLED: no usable posterior reference "
+                f"({','.join(dropped)} all failed contact QC)")
         self.armed = ok or not self.cfg.require_quality
 
     def _make(self, kind, onset, peak, dur, peak_t):
@@ -280,7 +300,8 @@ class Tier1Detector:
         blink_peak = max(s[1] for s in window)
 
         if kind == "blink":
-            if self.cfg.use_ratio_gate and ratio_at_peak < self.cfg.min_ratio:
+            if (self.cfg.use_ratio_gate and self.i_ref
+                    and ratio_at_peak < self.cfg.min_ratio):
                 self.rejected["ratio"] += 1
                 return None
             if emg_peak > self.cfg.blink_emg_max_z:

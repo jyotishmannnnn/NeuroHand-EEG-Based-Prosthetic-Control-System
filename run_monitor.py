@@ -318,6 +318,8 @@ class Monitor(QtWidgets.QWidget):
         was_cal = self.det.calibrated
         evs = self.det.push(chunk)
         if self.det.calibrated and not was_cal:
+            if self.det.gate_note:
+                self.log(self.det.gate_note)
             if self.det.armed:
                 extra = f" (warnings: {self.det.quality_reasons})" if \
                     self.det.quality_reasons else ""
@@ -488,6 +490,9 @@ def build_args(argv=None):
     p.add_argument("--source", default="lsl",
                    help="'lsl', 'synth', or a LiveSession directory to replay")
     p.add_argument("--port", help="ESP32 serial port; omit for a hand-free contact run")
+    p.add_argument("--stream", help="exact LSL stream name (default: auto-pick the "
+                                   "8-channel EEG stream for --user)")
+    p.add_argument("--user", default="Jyotishman", help="LSL stream name prefix")
     p.add_argument("--mock", action="store_true", help="attach the in-process mock hand")
     p.add_argument("--calib", type=float, default=20.0)
     p.add_argument("--blink-z", type=float, default=12.0)
@@ -505,7 +510,8 @@ def main(argv=None):
     args = build_args(argv)
     app = QtWidgets.QApplication(sys.argv[:1])
 
-    kw = dict(realtime=args.source != "lsl", speed=args.speed)
+    kw = dict(realtime=args.source != "lsl", speed=args.speed,
+              name=args.stream, user=args.user)
     if args.source == "synth":
         # Repeating cycle-cycle-confirm-release so the demo keeps producing
         # gestures for as long as the window is open.

@@ -1,0 +1,90 @@
+Session 09-22-2026 / LiveSession / 09-33-34
+95 s, 23750 samples, fs 250 Hz, 0 timestamp gaps
+(09-27-40, 337 s, is the LSL streaming session that was open during live probing)
+Intended protocol: 10 short blinks @3 s, 10 s rest, 5 held blinks @4 s,
+                   10 s rest, 5 jaw clenches @4 s
+
+VERDICT: frontal contact is the best yet - the quality gate armed clean for the
+first time. Six posterior pads are floating. The protocol still cannot be
+scored, but this session exposed and fixed a real bug in the ratio gate.
+
+--- contact ---
+  ch     bp_rms   50Hz%   verdict
+ FP1      754.0     0.5   good, mains essentially gone
+ FP2      796.6     3.8   good, inside the <5% target
+  O1     7337.8   282.5   floating
+  O2     7319.5   260.5   floating
+  C3     7328.8   269.1   floating
+  CZ     7306.1   268.1   floating
+  FZ     7334.0   275.4   floating
+  C4     6315.9    40.5   floating
+
+Live correlation check taken from the LSL stream just before this recording:
+O1/O2/C3/CZ/FZ correlate at r = 1.00 with one another (mean 0.999) and C4 at
+0.97. Six channels reading one signal, at ten times the frontal amplitude, is
+the not-on-the-scalp signature. Their near-identical bp_rms (7306-7338) says the
+same thing.
+
+Progress on the frontal pair is real. Against 09-13-19 earlier the same evening:
+  FP1 50Hz/signal   0.5%  was 7180%
+  FP2 50Hz/signal   3.8%  was 5421%
+Calibrating on the quiet 56-76 s stretch, quality.assess returned no complaints
+at all and the detector armed - the first time that has happened on real data.
+
+Because Tier 1 reads only FP1 and FP2, gesture control is viable right now even
+with the posterior pads floating. Those six matter for alpha, the Berger check
+and the later motor-imagery tiers, not for blink/jaw.
+
+--- bug found: the ratio gate was poisoned by the floating pads ---
+The gate asks "is this excursion frontally dominant?" by comparing frontal
+deviation against the posterior mean. With six posterior pads floating at ten
+times the frontal amplitude, every genuine blink scored a ratio below 1:
+
+  with gate as written:   2 blink-type events, 13 rejected by ratio
+  with gate disabled:     7 blink-type events,  0 rejected
+
+Fixed in detect.py: the posterior reference set is narrowed at calibration to
+pads that pass contact QC, and if none qualify the gate reports
+  "ratio gate DISABLED: no usable posterior reference (O1,O2,C3,CZ,FZ,C4 all
+   failed contact QC)"
+and stops gating rather than gating on noise. Regression test [4b] covers both
+directions: floating pads dropped, clean pads kept.
+
+Note this weakens artifact rejection whenever the posterior pads are bad, which
+is a further reason to fix them - the gate is the main defence against cable
+sway and electrode pops being read as gestures.
+
+--- protocol still not scorable ---
+Autocorrelation of the frontal blink-band envelope:
+  0-40 s  (expect 3 s train)   strongest 1.00 s (r=0.349)   r(3 s) = -0.107
+  38-68 s (expect 4 s train)   strongest 1.22 s (r=0.421)   r(4 s) = -0.079
+  62-95 s (expect 4 s train)   strongest 1.33 s (r=0.552)   r(4 s) = +0.274
+
+No 3 s or 4 s periodicity. Detected events (gate off, calibrated on 1-7 s):
+  9.3   jaw  z=85    764 ms      41.9  blink_long z=13   428 ms
+  10.7  jaw  z=210  1604 ms      50.9  jaw  z=182   624 ms
+  14.8-16.8 four jaw z~6         51.6  blink z=18   156 ms
+  17.9  jaw  z=51   1408 ms      57.6  blink_long z=14  976 ms
+  26.0  jaw  z=158  1232 ms      84.0  blink z=16   320 ms
+  27.5  jaw  z=77    340 ms      86.2  blink z=17   372 ms
+  29.6  blink_long z=58 1200 ms  88.9  blink z=16   372 ms
+                                 89.2  jaw  z=19   240 ms
+                                 93.6  jaw  z=138 1392 ms
+
+Two observations. First, the early block (9-30 s) is dominated by very large,
+very long events - z up to 210 and durations over 1.4 s - with high EMG. Those
+are movement or clenching, not 300 ms blinks. Second, 84-89 s contains three
+events that look exactly like blinks: consistent amplitude (z 15.5-16.8),
+consistent duration (320-372 ms), spaced 2.2-2.7 s apart. That trio is the
+closest thing to a clean blink train in any recording so far.
+
+So the gestures are detectable, but the block order and timing do not match the
+intended protocol and cannot be reconstructed from the signal.
+
+--- next step: stop recording blind, drive the GUI live ---
+The analysis loop is the bottleneck now, not the signal. Run
+  python run_monitor.py --source lsl --stream jyotishman_EEG
+and perform the gestures while watching the features pane: each blink either
+crosses the dashed threshold or it does not, visible immediately. Adjust
+technique against live feedback rather than recording 95 s and inspecting after.
+Re-seat the six posterior pads to restore the ratio gate.

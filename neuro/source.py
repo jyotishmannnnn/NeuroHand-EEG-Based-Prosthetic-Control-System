@@ -47,16 +47,18 @@ class LslSource(Source):
     """
 
     def __init__(self, name=None, user="Jyotishman", timeout=10.0, max_chunk=256):
-        from pylsl import StreamInlet, resolve_byprop
+        from pylsl import StreamInlet, resolve_byprop, resolve_streams
 
-        self.stream_name = name or f"{user}_UnFilter"
-        infos = resolve_byprop("name", self.stream_name, timeout=timeout)
-        if not infos:
-            raise RuntimeError(
-                f"LSL stream {self.stream_name!r} not found. Start the app in "
-                f"STREAMING-LSL mode; run tools/lsl_probe.py to list names."
-            )
-        self.inlet = StreamInlet(infos[0], max_chunklen=max_chunk, recover=False)
+        if name:
+            infos = resolve_byprop("name", name, timeout=timeout)
+            if not infos:
+                raise RuntimeError(
+                    f"LSL stream {name!r} not found. Run tools/lsl_probe.py to list names.")
+            info = infos[0]
+        else:
+            info = _pick_eeg_stream(resolve_streams(wait_time=timeout), user)
+        self.stream_name = info.name()
+        self.inlet = StreamInlet(info, max_chunklen=max_chunk, recover=False)
         info = self.inlet.info()
         self.fs = info.nominal_srate() or FS_EEG
         self.names = _lsl_labels(info) or CHANNELS[: info.channel_count()]
@@ -69,6 +71,32 @@ class LslSource(Source):
 
     def close(self):
         self.inlet.close_stream()
+
+
+def _pick_eeg_stream(infos, user):
+    """Choose the 8-channel EEG stream among the app's advertised streams.
+
+    The manual documents '<UserName>_UnFilter', but the app actually advertises
+    '<username>_EEG' with the username lower-cased, plus a bare 'EEG' duplicate.
+    Rather than hard-code either, prefer an unfiltered name, fall back to _EEG,
+    and match the user case-insensitively.
+    """
+    eeg = [i for i in infos if i.channel_count() >= 8
+           and "PPG" not in i.name().upper() and "IMU" not in i.name().upper()
+           and "MARKER" not in i.name().upper()]
+    if not eeg:
+        raise RuntimeError(
+            "No 8-channel LSL stream found. Start NeuroAnalytics in STREAMING-LSL "
+            "mode; run tools/lsl_probe.py to list names.")
+
+    u = (user or "").lower()
+
+    def rank(i):
+        n = i.name().lower()
+        return (0 if u and n.startswith(u) else 1,          # prefer this user's stream
+                0 if "unfilter" in n else 1 if "eeg" in n else 2)
+
+    return sorted(eeg, key=rank)[0]
 
 
 def _lsl_labels(info):

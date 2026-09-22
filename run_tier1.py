@@ -27,6 +27,9 @@ def build_args(argv=None):
     p.add_argument("--source", default="synth",
                    help="'lsl', 'synth', or a LiveSession directory to replay")
     p.add_argument("--port", help="ESP32 serial port, e.g. COM5")
+    p.add_argument("--stream", help="exact LSL stream name (default: auto-pick the "
+                                   "8-channel EEG stream for --user)")
+    p.add_argument("--user", default="Jyotishman", help="LSL stream name prefix")
     p.add_argument("--mock", action="store_true", help="use in-process mock hand")
     p.add_argument("--calib", type=float, default=20.0,
                    help="seconds of rest used to learn the baseline")
@@ -82,7 +85,7 @@ def make_hand(args, stream_clock):
 def main(argv=None):
     args = build_args(argv)
 
-    kw = dict(realtime=args.realtime)
+    kw = dict(realtime=args.realtime, name=args.stream, user=args.user)
     if args.source == "synth":
         kw.update(duration=args.duration,
                   events=synth_events(args.duration, args.calib))
@@ -114,6 +117,8 @@ def main(argv=None):
                 announced = True
                 say(f"\nbaseline locked at {t_stream:.1f}s")
                 say(quality_report(det, src))
+                if det.gate_note:
+                    say(det.gate_note)
                 if not det.armed:
                     say("\nNOT ARMED -- frontal contact failed the quality check:")
                     for r in det.quality_reasons:
