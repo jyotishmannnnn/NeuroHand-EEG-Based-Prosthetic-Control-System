@@ -1,12 +1,34 @@
 # NeuroState BCI → Bionic Hand: Project Notes
 
-Last updated: 2026-09-20
+Last updated: 2026-09-22
+
+Lab notebook: hardware facts, data access, session log, and what to do next.
+Design rationale for the signal chain lives in [docs/DESIGN.md](docs/DESIGN.md);
+per-session analysis lives in [reports/](reports/).
 
 ## Goal
 
 Control a robotic hand (8× N20 micro DC gearmotors, tendon-driven fingers) from the
 NeuroState EEG cap. Discrete grasp primitives selected by brain/biosignal, executed by
 hand firmware.
+
+## Status
+
+The control chain is built, tested and pushed: EEG → filters → gesture detection →
+command → serial → ESP32 firmware, plus a live GUI monitor and a self-scoring cued
+protocol. It has not yet driven a hand, and the gesture set is not yet validated
+against real intent.
+
+As of the latest session the blocker is electrode placement, not code:
+
+- **Jaw clench works.** Session 10-25-53 detected 5/5 cued clenches with the block
+  autocorrelating at r=0.485 on a 3.98 s lag against the intended 4 s spacing.
+- **Blinks are not reaching FP1/FP2.** Zero detections at any threshold from z=12 down
+  to z=4, with nothing rejected by any gate.
+- **Occipital alpha is achievable**: session 09-18-27 produced a clean 8.5 Hz rhythm
+  with an eyes-closed/eyes-open ratio of 2.65–3.49 against a >1.5 target.
+- Contact regresses between sessions, so it must be verified live before every
+  recording.
 
 ## Hardware: Qneuro H100 "NeuroState" cap
 
@@ -18,6 +40,9 @@ hand firmware.
 - Link: Bluetooth (BLE serial style). USB option exists in app. Device name `NeuroState-XXXX`.
 - Firmware commands seen in log: configure(11), PPG calib(235), set channel gain(8),
   start stream(170), stop stream(255). Gain is configurable.
+- **Amplitudes are raw device counts, not microvolts.** Gain is configurable and the
+  scale undocumented; observed RMS spans 162 to 22000 across sessions. Nothing
+  downstream may assume a scale — thresholds are expressed in baseline MAD units.
 
 ## Software: QneuroNeuroAnalytics (Unity 2022.3, Mono, licensed)
 
@@ -30,6 +55,8 @@ hand firmware.
 - App default EEG filter: Butterworth bandpass 0.5–40 Hz order 6. PPG 0.5–5 Hz order 4.
 - Signal Quality Index screen before streaming: per-electrode Low/Medium/High.
 - No SDK, no BLE protocol doc. Do not reverse BLE; use LSL or CSV.
+- Unity player log: `%LOCALAPPDATA%Low/Qneuro/QneuroNeuroAnalytics/Player.log`
+  (previous run in `Player-prev.log`). Shows the command sequence, no impedance data.
 
 ## Raw data access (verified)
 
@@ -53,82 +80,147 @@ App username in use: `Jyotishman`.
 PseudoTimeSec step = 0.004 s (250 Hz) for EEG, 0.01 s (100 Hz) for PPG/IMU.
 Timestamp format `MM-DD-YYYY HH:mm:ss:fff`.
 
-### LSL (live)
+The offline export (`Filtered_offline_...`) applies a 48–62 Hz bandstop and is useful
+for checking whether real EEG survives under mains hum. It is not a substitute for
+fixing acquisition.
 
-Start app in STREAMING-LSL mode. Streams (case-sensitive, per manual):
-`<UserName>_UnFilter` (EEG), `<UserName>_PPG`, `<UserName>_IMU`, `<UserName>_Marker`.
-String dump of app DLL also contains `_EEG` suffix (possibly filtered stream). Verify with
-`tools/lsl_probe.py`. Not yet tested live.
+### LSL (live) — verified working 2026-09-22
 
-Python 3.13 system interpreter has: numpy 2.4, scipy 1.17, opencv 5.0, pyserial, pylsl 1.18.4.
+Start the app in STREAMING-LSL mode. **The manual is wrong about the names.** It
+documents `<UserName>_UnFilter`; what the app actually advertises is:
 
-## Tools written (`tools/`)
+| stream | ch | rate | note |
+|---|---|---|---|
+| `jyotishman_EEG` | 8 | 250 Hz | EEG, user name **lower-cased**, carries FP1…C4 labels |
+| `jyotishman_PPG` | 2 | 100 Hz | |
+| `jyotishman_IMU` | 7 | 100 Hz | |
+| `jyotishman_Marker` | 1 | 0 Hz | string markers, unused so far |
+| `EEG` | 8 | 250 Hz | duplicate of the EEG stream, identical samples |
+
+There is no `_UnFilter` stream. The `_EEG` samples carry large DC offsets
+(≈ −100 000 to −230 000 counts), so it is the unfiltered signal despite the name.
+`neuro.source.LslSource` therefore auto-picks the 8-channel stream, matching the user
+prefix case-insensitively and preferring an unfiltered name; `--stream` overrides.
+
+Measured throughput: 254 Sa/s against a 250 Hz nominal rate.
+
+### Python environment
+
+Python 3.13 (Anaconda). numpy 2.4.6, scipy 1.17.1, pyserial 3.5, pylsl 1.18.4,
+PySide6 6.11.1, pyqtgraph 0.14.0, matplotlib 3.10.9, opencv.
+
+## Tools
 
 | script | purpose |
 |---|---|
-| extract_frames.py | sample N JPEG frames from a screen-recording mp4 (needs cv2) |
-| analyze_session.py | per-channel quality metrics from UnfilteredData.csv: RMS, flat%, 50 Hz share, alpha ratio, cross-channel corr |
-| alpha_ec_eo.py | eyes-closed vs eyes-open alpha comparison (Berger effect test) |
-| lsl_probe.py | discover LSL streams, print labels + live sample rates |
-| assembly_userstrings.txt | UTF-16 string dump of Assembly-CSharp.dll (headers, stream suffixes, class names) |
+| `run_monitor.py` | live GUI: contact table, traces, spectrum, feature z-scores. Doubles as the electrode-contact tool |
+| `run_protocol.py` | cued gesture session — issues cues, records them, scores itself |
+| `run_tier1.py` | headless Tier-1 runner: gestures → hand commands |
+| `tools/lsl_probe.py` | discover LSL streams, print labels + live sample rates |
+| `tools/analyze_session.py` | per-channel quality from UnfilteredData.csv: RMS, flat%, 50 Hz ratio, alpha ratio, cross-channel corr |
+| `tools/alpha_ec_eo.py` | eyes-closed vs eyes-open alpha (Berger test) |
+| `tools/gen_hand_config.py` | generate `firmware/esp32_hand/config.h` from `config/hand.json` |
+| `tools/extract_frames.py` | sample JPEG frames from a screen-recording mp4 |
 
 ## Session log
 
-All 2026-09-20. Quality target for real EEG: bandpassed RMS 10–50, 50 Hz share <5%,
-alpha peak ~10 Hz at O1/O2 eyes closed, EC/EO alpha ratio >1.5.
+Acceptance targets: bandpassed RMS 10–50, 50 Hz/signal < 0.05, alpha peak ~10 Hz at
+O1/O2 eyes closed, EC/EO alpha ratio > 1.5.
 
-| session | dur | result |
-|---|---|---|
-| 06-33-45 | ~75 s | first test |
-| 06-36-26 | 0 s | empty |
-| 06-37-30 | 624 s | RMS 11k–16k, 50 Hz 4–85%, no alpha peak. All channels railing. |
-| 08-32-02 | 872 s | RMS 12k–22k, 50 Hz 4–43%, no alpha. Cross-ch corr 0.47. (matches EEG_Recording.mp4) |
-| 09-56-36 | short | aborted |
-| 09-57-47 | 181 s | EC/EO test. 10× better but still fails. FP1 RMS 162, others 560–1240. 50 Hz 100–270× band power on FP1/FP2/C4. **O1,O2,C3,CZ,FZ near-identical waveform → not touching scalp.** EC/EO alpha ratio 0.04 (artifact, not Berger). (matches EEG_Recording2.mp4) |
+Note on units: early entries quote "50 Hz share" as a percentage of band power; later
+entries quote the 50 Hz-to-signal **ratio**, which can exceed 1. Both describe the same
+measurement.
+
+| date | session | dur | result |
+|---|---|---|---|
+| 09-20 | 06-33-45 | ~75 s | first test |
+| 09-20 | 06-36-26 | 0 s | empty |
+| 09-20 | 06-37-30 | 624 s | RMS 11k–16k, 50 Hz 4–85%, no alpha. All channels railing. |
+| 09-20 | 08-32-02 | 872 s | RMS 12k–22k, no alpha. Cross-ch corr 0.47. |
+| 09-20 | 09-56-36 | short | aborted |
+| 09-20 | 09-57-47 | 181 s | EC/EO test. O1,O2,C3,CZ,FZ near-identical → floating. EC/EO 0.04 (artifact). Ungated, this drove **10 motor commands from pure noise** — the reason the quality gate exists. |
+| 09-21 | 09-18-27 | 155 s | **First real EEG.** Cross-ch corr 0.25, occipital peak 8.5 Hz, EC/EO 2.65–3.49. FP1 carried EEG but not the eye dipole (blink-band 0.2–1.5 MAD vs FP2's 11–60). |
+| 09-22 | 09-12-53 | 0 s | aborted |
+| 09-22 | 09-13-19 | 105 s | **Regression.** Mains 4–5× worse in counts (O1 30×), no alpha (peak 4.2 Hz), FP1–FP2 corr −0.02 → +0.71. Gesture trains provably absent (r = −0.012 at the 3 s lag). Unusable. |
+| 09-22 | 09-27-40 | 337 s | LSL session open during live probing, not a protocol run |
+| 09-22 | 09-33-34 | 95 s | **Best frontal contact.** FP1 0.5%, FP2 3.8% mains; gate armed clean for the first time. Six posterior pads floating (r = 1.00). Exposed the ratio-gate bug. Three blink-like events at 84–89 s. |
+| 09-22 | 10-25-53 | 126 s | **Jaw block validated**: 5/5 clenches, r=0.485 at 3.98 s lag. Blinks absent at every threshold. 13 s lead-in. |
 
 PPG (HR ~70–80 bpm, SpO2 ~99%) and IMU good in every session.
 
-### Diagnosis (as of 09-57-47)
-1. Occipital/central electrodes floating (hair, no contact) → five channels read reference-drive noise.
-2. Mains hum on skin-contact channels → high impedance + laptop charger / monitors nearby / poor ear-clip reference.
+## Current diagnosis
 
-### Fix checklist before next recording
-1. Unplug laptop from mains, 1 m from monitors/chargers.
-2. Wet ear-clip reference, clean earlobe, tight.
-3. Part hair under O1/O2/C3/C4/CZ/FZ, press + wiggle each pad, saline drop on each.
-4. Do not Proceed past Signal Quality Index until all 8 green.
-5. Sanity test: press FP1 pad + ear clip with fingers for 10 s; if FP1 goes small/flat, contact is the story.
-6. Re-record 60 s EC then 60 s EO. Run
-   `python tools/alpha_ec_eo.py <session_dir> 5 60 65 120`.
+1. **Frontal pads are not coupled to the eye dipole.** Jaw clenches come through on
+   FP1/FP2 while blinks do not, on the same electrodes in the same recording. Jaw is
+   read from the 25–110 Hz EMG band, which couples through mediocre skin contact; a
+   blink is a slow EOG dipole needing the pad near the eye. Pads riding up toward the
+   hairline keep the EMG and lose the dipole. Same pattern FP1 showed on 09-18-27.
+2. **Posterior pads keep floating.** O1/O2/C3/CZ/FZ repeatedly show r ≈ 1.00 with one
+   another at ~10× the frontal amplitude — six channels reading one signal.
+3. **Mains varies session to session**, from 0.5% to 7180% of signal on the same
+   electrode within one evening. Battery power and distance from monitors matter.
 
-## Control architecture (planned)
+## Before the next recording
+
+1. **Position** FP1/FP2 low on the forehead, ~1–2 cm above the eyebrows, not at the
+   hairline. This is the current blocker.
+2. Re-seat O1/O2/C3/C4/CZ/FZ: part hair, saline drop, press and hold.
+3. Laptop on battery, 1 m from monitors and chargers. Re-wet the ear-clip reference on
+   cleaned skin. Check the forehead pads are not bridged by excess saline.
+4. **Verify live, which takes ten seconds** — do not record blind:
+   ```
+   python run_monitor.py --source lsl --stream jyotishman_EEG
+   ```
+   - blink hard three times: the blink-z trace must tower over the dashed threshold
+   - close your eyes 10 s: an 8–10 Hz bump must appear at O1/O2 in the spectrum
+   - 50Hz/sig under ~0.05 on FP1/FP2
+   Contact demonstrably regresses between sessions; both checks passed on 09-18-27 and
+   neither passed on 09-13-19.
+5. Then record with the cued runner, so cue times are recorded rather than reconstructed:
+   ```
+   python run_protocol.py --stream jyotishman_EEG
+   ```
+
+## Control architecture
 
 ```
-cap --BLE--> NeuroAnalytics (STREAMING-LSL) --LSL--> Python pipeline --serial/BLE--> ESP32 --PWM--> 4x DRV8833 --> 8x N20 tendons
-                                                                                              ^ encoder / current feedback
+cap --BLE--> NeuroAnalytics (STREAMING-LSL) --LSL--> Python --serial--> ESP32 --PWM--> 4x DRV8833 --> 8x N20
+                                                        |                  ^
+                                                   quality gate       watchdog: coast on link loss
 ```
 
-Pipeline: pull 250 Hz EEG → notch 50 Hz + bandpass → 1 s epochs → features → classifier →
-command with confidence threshold + dwell + rest class → hand primitive.
+Pipeline: pull 250 Hz EEG → causal notch + band filters → features → threshold state
+machines → command with confidence, dwell and lockout → hand primitive.
 
 ### Control tiers (easiest first)
-1. Blink / jaw clench (FP1/FP2 threshold). No ML. 2–3 commands. Build first.
+
+1. **Blink / jaw clench** (FP1/FP2 threshold). No ML. **Built and tested**; jaw
+   validated on real data, blink pending electrode placement.
 2. SSVEP (O1/O2, flicker targets on screen). FFT/CCA. 4–6 commands. No ML.
-3. Alpha level (relax → open). Band-power threshold.
-4. Motor imagery left/right hand (C3/C4/CZ). CSP+LDA or Riemannian+LR, scikit-learn, per-session training. 2–3 classes, 65–80%.
+3. Alpha level (relax → open). Band-power threshold. Feasible now that alpha is real.
+4. Motor imagery left/right hand (C3/C4/CZ). CSP+LDA or Riemannian+LR, per-session
+   training. 2–3 classes, 65–80%. Needs the posterior pads fixed.
 5. Hybrid: MI for intent, blink confirm, IMU head tilt to cycle primitives.
 
 Per-finger decoding from scalp EEG: not feasible. Hand firmware owns grasp primitives
-(open, power grip, pinch, point, tripod); BCI only selects primitive.
+(open, power grip, pinch, point, tripod); the BCI only selects a primitive.
 
 ### Hand side (to decide)
+
 - N20 = brushed DC gearmotor, no position sensing unless encoder variant. Tendon = pull only.
 - Drivers: 4× DRV8833 (2 H-bridges each) or 2× TB6612FNG. MCU: ESP32 (BLE/WiFi, 16 PWM).
 - Feedback: N20 encoder variant (best), or current-sense stall detect (INA219 / driver sense), or open-loop timed (fragile).
 - Power: stall ~0.7–1.6 A per motor → 2S LiPo + 6 V buck ≥5 A. Not USB.
-- Open questions: finger→motor map, encoder yes/no, motor voltage rating, boards owned, tendon return (spring/antagonist/elastic).
+- Open questions, all parameterised in `config/hand.json` so they do not block:
+  finger→motor map, encoder yes/no, motor voltage rating, boards owned, tendon return
+  (spring/antagonist/elastic).
 
 ## Misc
-- `EEG_Recording.mp4` (96 s, EEG tab) and `EEG_Recording1.mp4` (25 s, Analysis tab) and
+
+- `EEG_Recording.mp4` (96 s, EEG tab), `EEG_Recording1.mp4` (25 s, Analysis tab) and
   `EEG_Recording2.mp4` (179 s, EC/EO test) are screen recordings only. Frames in `frames/`.
-- The original `EEG_Recording2.mp4` upload was a byte-identical duplicate of `EEG_Recording.mp4`; later replaced by the real EC/EO recording.
+  Excluded from git: 333 MB, and one file exceeds GitHub's 100 MB limit.
+- The original `EEG_Recording2.mp4` upload was a byte-identical duplicate of
+  `EEG_Recording.mp4`; later replaced by the real EC/EO recording.
+- `NeuroAnalyticsWindows_28-05-2026/` and `tools/assembly_userstrings.txt` are excluded
+  from git: vendor-proprietary application, and a string dump taken from its DLL.
