@@ -1,0 +1,68 @@
+Session 09-22-2026 / LiveSession / 09-13-19
+105 s, 26275 samples, fs 250 Hz, 0 timestamp gaps
+(09-12-53 from the same evening is header-only, 0 samples - aborted)
+Intended protocol: 10 short blinks @3 s, 10 s rest, 5 held blinks @4 s,
+                   10 s rest, 5 jaw clenches @4 s
+
+VERDICT: not usable. This is a regression from 09-18-27, not a step forward.
+The gesture trains are not present in the signal and the frontal pair is
+dominated by a shared source. Re-record after fixing acquisition.
+
+--- why, compared against yesterday's good session ---
+                            09-13-19 (today)   09-18-27 (yesterday)
+ 50 Hz rms, counts           2805 - 20945        492 - 6696
+ 50 Hz / 1-45 signal          4.6x - 78x         0.5x - 11.5x
+ O1 50 Hz rms                   14647                492      (30x worse)
+ occipital alpha share       0.024 / 0.063      0.436 / 0.391  (eyes closed)
+ spectral peak, O1/O2         4.2 / 4.2 Hz       8.5 / 8.5 Hz
+ FP1-FP2 corr, 0.5-8 Hz          +0.710             -0.020
+ mean |corr| all pairs            0.270              0.259
+
+1. Mains is 4-5x larger in absolute counts across the board, and 30x worse on
+   O1, which was the one clean channel yesterday.
+2. No alpha rhythm survives. After notching 50 and 100 Hz the occipital peak
+   sits at 4.2 Hz with an alpha share of 0.02-0.06, against 8.5 Hz and 0.39-0.44
+   yesterday. Real EEG is buried, not merely noisy.
+3. FP1 and FP2 went from independent (-0.02) to sharing 71% of their blink-band
+   variance. Only the frontal pair changed; the all-pairs mean is unchanged, so
+   this is local to those two pads rather than a global reference failure.
+   A saline bridge across the forehead, or both pads sitting loose and picking
+   up the same field, would produce exactly this.
+
+--- the gesture trains are absent ---
+Autocorrelation of the frontal blink-band envelope. A train of 10 blinks at 3 s
+spacing cannot exist without a clear autocorrelation peak at lag 3 s:
+
+  window                          strongest lag      r at expected lag
+  2-40 s   (expect 3 s train)       4.48 s (r=0.105)   r(3 s) = -0.012
+  40-70 s  (expect 4 s train)       1.25 s (r=0.104)   r(4 s) = -0.010
+  70-105 s (expect 4 s train)       3.24 s (r=0.347)   r(4 s) = +0.261
+
+The first two blocks show no periodicity at all. Only the final block hints at
+structure (r=0.35 at 3.2 s), so the jaw clenches may be partly present.
+
+--- detector output is common-mode, not gestures ---
+13 events with the quality gate forced off. The tell is the frontal/posterior
+ratio: 0.2 to 6.8, mostly near 1.0, meaning the "frontal" excursion is equally
+present at the posterior pads. Yesterday's two genuine events scored 59.6 and
+68.0 on the same measure - roughly 50x higher. Twelve of the thirteen were
+classified jaw, which is the path that does not apply the ratio gate.
+
+Ratio near 1.0 is the signature the gate was built to catch. It is doing its
+job: on this session it refuses to arm (FP1 50 Hz 71.8x, FP2 54.2x).
+
+--- what to do next ---
+Yesterday proved good contact is achievable on this cap, and today shows it can
+regress silently between sessions. So stop recording blind:
+
+1. Fix acquisition first: unplug the laptop from mains and run on battery, move
+   1 m from monitors and chargers, re-wet the ear-clip reference on cleaned skin.
+2. Check the forehead pads are not bridged by excess saline, and that FP1 and
+   FP2 are separately seated.
+3. Run `python run_monitor.py --source lsl` BEFORE recording and confirm two
+   things live: 50Hz/sig under ~0.05 on FP1/FP2, and a visible 8-10 Hz bump at
+   O1/O2 when the eyes close. Both were present yesterday and neither is present
+   today. This takes about 20 s and would have caught the problem before a
+   105 s recording was spent on it.
+4. Only then run the protocol, and note the wall-clock start of each block so
+   detections can be scored against truth.
