@@ -1,0 +1,90 @@
+Session 09-22-2026 / LiveSession / 10-25-53
+126 s, 31400 samples, fs 250 Hz, 0 timestamp gaps
+Recorded through the app with manual timing (not run_protocol.py)
+Protocol: 20 s rest, 10 blinks @3 s, 10 s rest, 5 held blinks @4 s, 10 s rest,
+          5 jaw clenches @4 s
+
+VERDICT: first session where a block provably matches the protocol - the jaw
+clenches are all there, correctly spaced, and all five are detected. The blink
+and held-blink blocks are absent from the frontal channels. The detector is not
+at fault; the eye signal is not reaching FP1/FP2.
+
+--- the timing worked ---
+Aligning the schedule against detections puts the start at +13.0 s (a 13 s
+lead-in before the rest block). At that offset:
+
+  cue kind     cued   hit   missed
+  blink          10     0       10
+  blink_long      5     0        5
+  jaw             5     5        0
+
+Autocorrelation of the frontal envelope, per block:
+  blink block  (expect 3 s)   strongest 1.15 s   r(3 s) = +0.064
+  held block   (expect 4 s)   strongest 1.00 s   r(4 s) = -0.006
+  jaw block    (expect 4 s)   strongest 3.98 s   r(4 s) = +0.485   <-- the train
+
+The jaw block is the first time any recording has reproduced its intended
+structure. Peaks land at 102.9, 106.3, 110.4, 114.3, 118.7 s - five clenches at
+3.4-4.4 s spacing. So the order and the pacing were followed; this is not a
+timing failure.
+
+--- the blinks are not in the signal ---
+Not a threshold problem. Sweeping blink_z from 12 down to 4 yields zero blink
+detections at every value, and nothing is rejected by any gate
+(rejections: ratio 0, emg 0, slow 0) - the state machine never sees a candidate.
+
+Not a baseline problem either. The blink feature avoids a high-pass by design
+(to suppress the undershoot echo), which costs noise floor on drifty data: its
+baseline MAD is 2491 counts against 589 for a plain 0.5-8 Hz bandpass. Adding a
+high-pass back reduces the spread to 1722 / 728 / 347 counts at 0.3 / 0.5 /
+0.8 Hz, and still produces at most 2 blink events. The excursions simply are
+not there.
+
+Peak-picking the frontal envelope over the whole recording finds 18 events above
+z=4. Only about six fall in the 28 s blink block, irregularly spaced, and two in
+the held block. Ten blinks at 3 s spacing would be unmissable.
+
+--- why, and it is not the blinking ---
+                              10-25-53      09-33-34
+  blink-band peak, counts     5060/5262     4031/3995
+  quiet-window MAD, counts      589/576       107/88
+  SNR (peak / MAD)              8.6/9.1     37.5/45.3
+
+Blink amplitude is if anything slightly larger than in the good session. The
+noise floor rose five to six times. Frontal contact also drifted: FP2 50 Hz went
+from 3.8% to 17.6%, FP1 stayed good at 1.8%.
+
+But amplitude alone does not explain ten missing blinks, because the jaw
+clenches came through cleanly on the same two electrodes. Jaw is detected from
+the 25-110 Hz EMG band, which couples through mediocre skin contact; a blink is
+a slow EOG dipole that needs the pad to sit close to the eye with proper
+coupling. Electrodes that have ridden up toward the hairline keep picking up
+temporalis EMG while losing the eye dipole almost entirely. That matches what
+was seen on 09-18-27, where FP1 carried ongoing EEG yet showed 0.2-1.5 MADs of
+blink-band excursion against FP2's 11-60.
+
+--- contact ---
+  ch     bp_rms   50Hz%   note
+ FP1      436.2     1.8   good mains, but no eye dipole
+ FP2      570.5    17.6   degraded from 3.8% earlier
+  O1     8701.6   240.1   floating
+  O2     8575.5   380.8   floating
+  C3     5643.3    21.7   marginal, kept as ratio reference
+  CZ     7147.6    49.9   floating
+  FZ     6441.4    44.6   floating
+  C4     6407.6    33.6   marginal, kept as ratio reference
+mean |corr| between bandpassed channels: 0.70
+
+The ratio gate excluded O1, O2, CZ and FZ automatically and ran against C3 and
+C4 - the narrowing added for 09-33-34 working as intended.
+
+--- next ---
+1. Reposition FP1 and FP2 low on the forehead, roughly 1-2 cm above the
+   eyebrows. If they have crept up toward the hairline that alone explains ten
+   missing blinks alongside five clean jaw clenches.
+2. Verify before recording, which takes ten seconds: open the monitor, blink
+   hard three times, and watch the blink-z trace. If those blinks do not tower
+   over the dashed threshold, no amount of recording will help.
+3. Then use run_protocol.py rather than the app, so cue times are recorded
+   rather than reconstructed. The +13 s lead-in had to be recovered by search
+   here; it would have been exact.
